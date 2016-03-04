@@ -1,0 +1,42 @@
+{% extends "views/layout.html.selmer" %}
+{% block content %}
+<style>
+  td {
+    text-align:center;
+    vertical-align:middle;
+  }
+</style>
+
+<table id="archtypes" class="display" cellspacing="0" width="100%">
+  <thead>
+    <th>List</th>
+    <th>Number of lists</th>
+    <th>Tags</th>
+  </thead>
+  <tbody>
+    {% for archetype in archetypes %}
+    <tr>
+      <td>{{ archetype.pretty|safe }}<br><a href="/archetype?id={{ archetype.id }}">Manage Archetype</a></td>
+      <td>{{ archetype.total_count }}</td>
+      <td>{{ archetype.tag_list }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+  $(document).ready(function () {
+    $('#archtypes').dataTable({
+      "lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+      iDisplayLength: 25,
+      "order": [[ 1, "desc" ]],
+      "columns": [
+        {"width": "50%"},
+        {"width": "5%"},
+        { "width": "45%"}
+      ]
+    });
+  });
+</script>
+
+{% endblock %}

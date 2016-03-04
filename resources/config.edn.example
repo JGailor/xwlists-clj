@@ -1,0 +1,11 @@
+{
+  :db {
+    :classname ""
+    :subprotocol ""
+    :subname ""
+    :useSSL false
+    :user ""
+    :initial-pool-size 3
+    :min-pool-size 3
+  }
+}

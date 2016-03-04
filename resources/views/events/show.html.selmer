@@ -1,0 +1,58 @@
+{% extends "views/layout.html.selmer" %}
+{% block content %}
+
+<table id="events" class="display" cellspacing="0" width="100%">
+  <thead>
+    <tr>
+      <th>Id</th>
+      <th>DateTime</th>
+      <th>IP Address</th>
+      <th>Event</th>
+      <th>Details</th>
+    </tr>
+  </thead>
+  <tbody>
+      {% for event in events %}
+      <tr>
+         <td>{{ event.id }}</td>
+         <td>{{ event.event_date }}</td>
+         <td>{{ event.remote_address }}</td>
+         <td>{{ event.event }}</td>
+         <td>{{ event.event_details }}</td>
+      </tr>
+      {% endfor %}
+  </tbody>
+</table>
+
+<script>
+    $.fn.dataTable.moment = function ( format, locale ) {
+        var types = $.fn.dataTable.ext.type;
+
+        // Add type detection
+        types.detect.unshift( function ( d ) {
+            return moment( d, format, locale, true ).isValid() ?
+                'moment-'+format :
+                null;
+        } );
+
+        // Add sorting method - use an integer for the sorting
+        types.order[ 'moment-'+format+'-pre' ] = function ( d ) {
+            return moment( d, format, locale, true ).unix();
+        };
+    };
+    $(document).ready( function () {
+        $.fn.dataTable.moment( 'YYYY-MM-DD HH:mm:ss' );
+        $('#events').dataTable({
+            "order": [[ 1, "desc" ]],
+            "columns": [
+                { "data": "id", class:"dt-center compact"},
+                { "data": "event_date", class:"dt-center compact" },
+                { "data": "remote_address", class:"dt-center compact"  },
+                { "data": "event", class:"dt-center compact"  },
+                { "data": "event_details", class:"dt-center compact"  }
+            ]
+        });
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "views/layout.html.selmer" %}
+{% block content %}
+
+<style>
+    td {
+        text-align:center;
+        vertical-align:middle;
+    }
+</style>
+
+<br>
+<a href="/new">add a new tourney</a><br><br>
+<a href="/export_all_lists" rel="nofollow">export all tourneys to csv</a><br>
+
+<br>
+<table id="tourneys" class="display" cellspacing="0" width="100%">
+  <thead>
+    <tr>
+      <th>Id</th>
+      <th>Name</th>
+      <th>Num. Players</th>
+      <th>Results</th>
+      <th>Type</th>
+      <th>Date Played</th>
+      <th>Round Length</th>
+      <th>Venue/City/State/Country</th>
+      <th>Export Lists</th>
+      {% if admin %}
+      <th>Admin</th>
+      {% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for tourney in tourneys %}
+    <tr>
+      <td>{{ tourney.id }}</td>
+      <td>{{ tourney.tourney_name }}</td>
+      <td>{{ tourney.participant_count }}</td>
+      <td>
+        <a href="{{ url_for( 'get_tourney_details', tourney_id=tourney.id ) }}">Browse/edit results</a>
+      </td>
+      <td>{{ tourney.tourney_type }}</td>
+      <td>{{ tourney.tourney_date }}</td>
+      <td>{{ tourney.round_length }}</td>
+      <td>
+        {% if tourney.venue %}
+        {{ tourney.venue }}
+        {% if tourney.venue_city %} / {{ tourney.venue_city }}{% endif %}
+        {% if tourney.venue_state %} / {{ tourney.venue_state }} {% endif %}
+        {% if tourney.venue_country %} / {{ tourney.venue_country }} {% endif %}
+        {% endif %}
+      </td>
+      <td>
+        <a type="text/csv" rel="nofollow" href="{{ url_for( 'export_tourney_lists', tourney_id=tourney.id) }}">Export to csv</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+    $.fn.dataTable.moment = function ( format, locale ) {
+        var types = $.fn.dataTable.ext.type;
+
+        // Add type detection
+        types.detect.unshift( function ( d ) {
+            return moment( d, format, locale, true ).isValid() ?
+                'moment-'+format :
+                null;
+        } );
+
+        // Add sorting method - use an integer for the sorting
+        types.order[ 'moment-'+format+'-pre' ] = function ( d ) {
+            return moment( d, format, locale, true ).unix();
+        };
+    };
+    $(document).ready( function () {
+        $.fn.dataTable.moment( 'YYYY-MM-DD HH:mm:ss' );
+        $.fn.dataTable.moment( 'YYYY-MM-DD' );
+        $('#tourneys').dataTable( {
+                "lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+                iDisplayLength: 25,
+                "order": [[ 0, "desc" ]]
+        });
+    } );
+</script>
+
+{% endblock %}

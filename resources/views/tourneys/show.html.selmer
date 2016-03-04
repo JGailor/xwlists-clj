@@ -1,0 +1,549 @@
+{% extends "views/layout.html.selmer" %}
+{% block content %}
+
+<style>
+    div.fw-container {
+        position: relative;
+        max-width: 1400px;
+        margin: 1 auto;
+    }
+    td {
+        text-align:center;
+        vertical-align:middle;
+    }
+</style>
+<script>
+    var locked     = {{ tourney.locked | tojson | safe }}
+    var tourney_id = {{ tourney.id | tojson | safe }}
+    var lockImg    = "/static/img/lock.png";
+    var unlockImg  = "/static/img/unlock.png"
+    var lockEditor;
+</script>
+<script>
+    pre_elim_editor = null
+    elim_editor = null
+
+    $.fn.dataTable.Editor.fieldTypes.lookup = $.extend( true, {}, $.fn.dataTable.Editor.models.fieldType, {
+        "create": function ( conf ) {
+            var that = this;
+
+            var options = "";
+            $.each(conf.options, function(key, option) {
+                options += '<option value="'+ option.value +'">'+ option.label +'</option>';
+            });
+
+            conf._input = $('<select/>')
+                .attr( $.extend( {
+                    id: conf.id,
+                    'class': ''
+                }, conf.attr || {} ) )
+                .html(options);
+
+            return conf._input[0];
+        },
+
+        "get": function ( conf ) {
+            return conf._input.val();
+        },
+
+        "set": function ( conf, val ) {
+            $.each(conf.options, function(key, option) {
+                if (option.label == val) {
+                    conf._input.val( option.value );
+                    return false;
+                }
+            });
+        },
+
+        inst: function ( conf ) {
+            return conf._input;
+        }
+    } );
+
+    function setupLock(){
+        lock = $('#lock');
+        img  = lock.find('img');
+        createButton = $('#ToolTables_rankings_0');
+        editButton = $('#ToolTables_rankings_1')
+        if ( locked ) {
+            img.attr( "src", lockImg);
+            createButton.hide();
+            editButton.hide();
+        }
+        else {
+            img.attr( "src", unlockImg)
+        }
+    }
+
+    function keyCheck()
+    {
+        k = document.getElementById('keytext').value;
+        log = document.getElementById('key-check-status');
+        edit_br = document.getElementById('edit_tourney_details_div')
+        log.innerHTML = "trying to unlock..."
+        var action;
+        url = "/unlock_tourney?key="+k+"&tourney_id="+tourney_id;
+        $.ajax({
+            type: "POST",
+            contentType: "application/json; charset=utf-8",
+            url: url,
+            success: function (data) {
+                if ( data.result == "fail" ) {
+                    log.innerHTML = "wrong email address!";
+                }
+                else {
+                    createButton = $('#ToolTables_rankings_0');
+                    editButton =   $('#ToolTables_rankings_1')
+
+                    if (locked) {
+                        locked = false;
+                        img.attr( "src", unlockImg);
+                        edit_br.innerHTML = '<a href="edit_tourney_details?tourney_id=' + tourney_id + '">Edit tourney details</a>'
+                        createButton.show();
+                        editButton.show();
+                        if (pre_elim_editor == null && elim_editor == null ) {
+                            createRoundEditors(true);
+                        }
+                        else {
+                            activateInlineForEditor('#pre_elim_rounds' );
+                            activateInlineForEditor('#elim_rounds' );
+                        }
+                    }
+                    else {
+                        locked = true;
+                        img.attr("src", lockImg);
+                        edit_br.innerHTML = ""
+                        createButton.hide();
+                        editButton.hide();
+                        pre_elim_editor = null;
+                        elim_editor = null;
+                        deactivateInlineEditing('#pre_elim_rounds');
+                        deactivateInlineEditing('#elim_rounds');
+
+                    }
+                    $('#lock-email-div').hide();
+                    log.innerHTML = "";
+                    $('#rankings').DataTable().ajax.reload();
+
+                }
+            },
+            error: function (data) {
+                log.innerHTML = "something went wrong, got response '" + data.responseJSON.message;
+            },
+            dataType: "json"
+        });
+
+    }
+
+
+    function lockClick(setup){
+        lock = $('#lock');
+        img  = lock.find('img');
+        $('#lock-email-div').show()
+    }
+
+    function createRoundEditor( ajaxUrl, tableName) {
+        return new $.fn.dataTable.Editor({
+            ajax: ajaxUrl + tourney_id,
+            table: tableName,
+            fields: [
+             {
+                 label: "Result ID",
+                 name: "result_id",
+                 type: "hidden"
+             },
+             {
+                label: "Round",
+                name: "round",
+             },
+             {
+                label: "Player 1",
+                name: "player1_id",
+             },
+             {
+                label: "Result",
+                name: "result",
+                type: "lookup",
+                options: [ {value: 'beat', label:'beat'}, {value:'lost to', label:'lost to'}, {value:'drew', label:'drew'} ]
+             },
+             {
+                label: "Player 2",
+                name: "player2_id",
+             },
+             {
+                label: "Player 1 Points Scored",
+                name: "player1_points_scored",
+             },
+             {
+                label: "Player 2 Points Scored",
+                name: "player2_points_scored",
+             },
+             {
+                label: "Player 1 List",
+                name: "player1_list",
+             },
+             {
+                label: "Player 2 List",
+                name: "player2_list",
+             }
+
+            ],
+    });
+    }
+
+    function activateInlineForEditor( tableId, editor ) {
+         $(tableId).on( 'click', 'tbody td:nth-child(3),tbody td:nth-child(5),tbody td:nth-child(6)', function (e) {
+            editor.inline( this, {
+                buttons: { label: '&gt;', fn: function () { this.submit(); } }
+            } );
+        } );
+    }
+
+    function deactivateInlineEditing( tableId, editor ) {
+       $(tableId).off( 'click',  'tbody td:nth-child(3),tbody td:nth-child(5),tbody td:nth-child(6)');
+    }
+
+    function createRoundDataTable( tableId, ajaxUrl) {
+        $(tableId).DataTable( {
+        "dom" : "Trftip",
+        "ajax": {
+            "url": ajaxUrl + tourney_id,
+            "type": "GET"
+        },
+        order: [[0, "asc"]],
+        "columns" : [
+            { "data": "round",class:"dt-center compact"},
+            { "data": "player1_id", class:"dt-center compact" },
+            { "data": "result", class:"dt-center compact"  },
+            { "data": "player2_id", class:"dt-center compact"  },
+            { "data": "player1_points_scored", class:"dt-center compact"  },
+            { "data": "player2_points_scored", class:"dt-center compact"  },
+            { "data": "player1_list", class:"dt-center compact"  },
+            { "data": "player2_list", class:"dt-center compact" }
+        ],
+        lengthMenu: [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+        iDisplayLength: -1,
+        tableTools: {
+            sRowSelect: "os",
+            sRowSelector: 'td:first-child',
+            aButtons: [
+                              ]
+        },
+
+    });
+
+    }
+
+    function aNumber(v)
+    {
+        return  /^[0-9]+$/.test(''+v);
+    }
+
+    function isBlank(str) {
+        return (!str || !str.length);
+    }
+
+    function blankOrNotANumber( v ) {
+        if ( isBlank(v)) {
+            return true;
+        }
+        if ( ! aNumber(v )) {
+            return true;
+        }
+        return false;
+    }
+
+    function isBoolean(b)
+    {
+        return /^true|false/.test(b);
+    }
+
+    function createRoundEditors(doActivate) {
+        pre_elim_editor = createRoundEditor( "/edit_pre_elim_results?tourney_id=", "#pre_elim_rounds" )
+
+        elim_editor = createRoundEditor( "/edit_elim_results?tourney_id=", "#elim_rounds" )
+        if ( doActivate ) {
+            activateInlineForEditor('#pre_elim_rounds',pre_elim_editor );
+            activateInlineForEditor('#elim_rounds',elim_editor );
+
+        }
+    }
+
+
+    var tourney_id = {{ tourney.id }}
+    function isZeroOrNoneOrNull(val) {
+        if ( val == 0 || val === "" || val == null ) {
+            return true;
+        }
+        return false;
+    }
+    jQuery.extend( jQuery.fn.dataTableExt.oSort, {
+
+        "champ-sort-asc": function ( a, b ) {
+            if ( isZeroOrNoneOrNull(a)) {
+                return 1;
+            }
+            if ( isZeroOrNoneOrNull(b) ) {
+                return -1;
+            }
+            return ((a < b) ? -1 : ((a > b) ? 1 : 0));
+        },
+
+        "champ-sort-desc": function ( a, b ) {
+            if ( isZeroOrNoneOrNull(a) ) {
+                return -1;
+            }
+            if ( isZeroOrNoneOrNull(b) ) {
+                return 1;
+            }
+            return ((a < b) ? 1 : ((a > b) ? -1 : 0));
+        }
+    } );
+    $(document).ready(function() {
+
+        lockButtonEl = $('#lock');
+        keyCheckerEL = $('#key-check')
+        lockButtonEl.click(lockClick);
+        keyCheckerEL.click(keyCheck);
+        setupLock();
+
+
+
+        rankingEditor = new $.fn.dataTable.Editor({
+            ajax: "/edit_rankings?tourney_id=" + tourney_id,
+            table: "#rankings",
+            fields: [
+                {
+                    label: "Player Id",
+                    name: "player_id",
+                    type: "hidden"
+                },
+                {
+                    label: "Player Name",
+                    name: "player_name"
+                },
+                {   label:  "Score",
+                    "name": "score"
+                },
+                {
+                    label: "Swiss Rank",
+                    name: "swiss_rank"
+                },
+                {
+                    label: "Championship Rank",
+                    name: "championship_rank"
+                },
+                {
+                    label: "Margin of Victory",
+                    name: "mov"
+                },
+                {
+                    label: "Strength of Schedule",
+                    name: "sos"
+                },
+                {
+                    label: "Dropped?",
+                    name: "dropped"
+                },
+                {
+                    label: "List",
+                    name:  "list"
+                }
+
+            ]
+        });
+
+        rankingEditor.on( 'preSubmit', function ( e, o, action ) {
+                if ( action !== 'remove' ) {
+                    if ( isBlank(o.data.player_name) ) {
+                        this.error('player_name', 'A player name must be given');
+                        return false;
+                    }
+                    else if ( blankOrNotANumber(o.data.score) ) {
+                        this.error('score', 'Score must be an integer number');
+                        return false;
+                    }
+                    else if ( blankOrNotANumber(o.data.swiss_rank) ) {
+                        this.error('swiss_rank', 'Swiss Rank must be an integer number');
+                        return false;
+                    }
+                    else if (! isBlank(o.data.championship_rank) && ! aNumber(o.data.championship_rank) ) {
+                        this.error('championship_rank', 'Championship Rank must be an integer number');
+                        return false;
+                    }
+                    else if ( ! isBoolean(o.data.dropped ) ) {
+                        console.log(o.data.dropped);
+                        this.error('dropped', 'Dropped must be true or false');
+                        return false;
+                    }
+                    else if (!isBlank(o.data.mov) && ! aNumber(o.data.mov) ) {
+                        this.error('mov', 'MOV must be an integer number');
+                        return false;
+                    }
+                    else if (!isBlank(o.data.sos) && ! aNumber(o.data.sos) ) {
+                        this.error('sos', 'SOS must be an integer number');
+                        return false;
+                    }
+                    return true;
+                }
+            } );
+
+        $('#rankings').DataTable( {
+            dom: "Tfrtip",
+            "ajax": {
+                "url": "/get_rankings?tourney_id=" + tourney_id,
+                "type": "GET"
+            },
+            "columns": [
+                { "data": "player_id"},
+                { "data": "player_name", class:"dt-center compact" },
+                { "data": "score", class:"dt-center compact"  },
+                { "data": "swiss_rank", class:"dt-center compact"  },
+                { "data": "championship_rank", class:"dt-center compact"  },
+                { "data": "mov", class:"dt-center compact"  },
+                { "data": "sos", class:"dt-center compact"  },
+                { "data": "dropped", class:"dt-center compact" },
+                { "data": "list", class:"dt-center compact"}
+            ],
+            "columnDefs": [
+                {
+                    "targets"    : [0],
+                    "visible"    : false
+                },
+                {
+                    "targets" : [2,3,4,5,6,7],
+                    "width": "5%"
+                },
+                {
+                    "targets" : [1],
+                    "width": "20%"
+                },
+
+                {
+                    "type": "champ-sort", targets: [4,3]
+                }
+            ],
+            order: [[3, "asc"], [4, "asc"]],
+            tableTools: {
+                sRowSelect: "os",
+                sRowSelector: 'td:first-child',
+                aButtons: [
+                    { sExtends: "editor_create", editor: rankingEditor },
+                    { sExtends: "editor_edit",   editor: rankingEditor }                ]
+            },
+            lengthMenu: [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+            iDisplayLength: -1
+        } );
+
+        if ( ! locked ) {
+            createRoundEditors(true)
+        }
+        createRoundDataTable('#pre_elim_rounds',  "/get_pre_elim_results?tourney_id=" );
+        createRoundDataTable('#elim_rounds',  "/get_elim_results?tourney_id=" );
+
+
+
+    } );
+</script>
+
+
+<div class="main-section">
+  <div>
+    <button name="lock" id="lock" style="border:none"><img src="" height="30" width="30" ></button>
+    <br>
+    <b>Tourney name:</b> <span>{{ tourney.tourney_name }}</span>
+    <b>Num participants:</b> <span>{{ tourney.participant_count }}</span>
+    <b>Date:</b> <span>{{ tourney.tourney_date }}</span>
+    <b>Type:</b> <span>{{ tourney.tourney_type }}</span>
+    <b>Format:</b> <span>{{  tourney.format }}</span>
+    <br>
+    <b>Venue:</b>
+    <span>
+      {% if tourney.venue %}
+      {{ tourney.venue }}
+      {% if tourney.venue_city %} / {{ tourney.venue_city }}{% endif %}
+      {% if tourney.venue_state %} / {{ tourney.venue_state }} {% endif %}
+      {% if tourney.venue_country %} / {{ tourney.venue_country }} {% endif %}
+      {% endif %}
+    </span>
+    <div id="lock-email-div" hidden>
+      <label>Enter the email address used to create this tourney</label>
+      <input type="text" id="keytext" name="keytext"/>
+      <button id="key-check" >go!</button>
+      <span class="error_text" id="key-check-status"></span>
+      <br>
+    </div>
+    <br>
+    <div id="edit_tourney_details_div">
+      <script>
+        if (!locked) {
+          document.writeln('<a href="edit_tourney_details?tourney_id=' + tourney_id + '">Edit tourney details</a>')
+        }
+      </script>
+    </div>
+    <hr>
+  </div>
+  <div>
+    <div class="fw-container">
+      <br>
+      <b>Final tourney rankings</b>
+      <br>
+      <i>To edit a record, click on the row and press the 'Edit' button</i>
+      <br>
+      <br>
+      <table id="rankings" class="compact display dataTable" role="grid" style="width:100%;">
+        <thead>
+          <th>Player Id</th>
+          <th>Player Name</th>
+          <th>Score</th>
+          <th>Swiss Rank</th>
+          <th>Championship Rank</th>
+          <th>Margin of Victory</th>
+          <th>Strength of Schedule</th>
+          <th>Dropped?</th>
+          <th>List</th>
+        </thead>
+      </table>
+    </div>
+    <br>
+    <b>Elimination Rounds</b>
+    <hr>
+    <span>
+      To edit: unlock the tourney, click on the result, player 1 score, or player 2 score, and press the submit button next to the field.
+    </span>
+    <table id="elim_rounds" class="compact display dataTable" role="grid" style="width:100%;">
+      <thead>
+        <th>Top</th>
+        <th>Player 1</th>
+        <th>Result</th>
+        <th>Player 2</th>
+        <th>Player 1 Points Scored</th>
+        <th>Points 2 Points Scored</th>
+        <th>Player 1 List</th>
+        <th>Player 2 List</th>
+      </thead>
+    </table>
+    <br>
+    <b>Pre-elimination Rounds</b>
+    <hr>
+    <span>
+      To edit: unlock hte tourney, click on the result, player 1 score, or player 2 score, and press the submit button next to the field.
+    </span>
+    <table id="pre_elim_rounds" class="compact display dataTable" style="width:100%;">
+      <thead>
+        <th>Round</th>
+        <th>Player 1</th>
+        <th>Result</th>
+        <th>Player 2</th>
+        <th>Player 1 Points Scored</th>
+        <th>Points 2 Points Scored</th>
+        <th>Player 1 List</th>
+        <th>Player 2 List</th>
+      </thead>
+    </table>
+  </div>
+</div>
+<br>
+<br>
+<hr>
+{% endblock %}
