@@ -16,6 +16,7 @@ Clone the repository locally
 Add the appropriate configuration for your database
 
 ``` %> cd xwlists-clj```
+
 ``` %> cp resources/config.edn.example resources/config.edn```
 
 Install the dependencies with Leiningen using
