@@ -8,6 +8,11 @@ purely a side project for me to work on a web application using Clojure.
 I use his site all the time for researching the current meta for X-Wing Miniatures.  It's a great
 resource for anyone interested in the community or playing X-Wing.
 
+This is also an effort at working with a somewhat bare-bones set of Clojure
+libraries for building webapps instead of relying on a framework like Luminus.
+That's not a knock across Luminus or frameworks but an attempt to work with
+simpler tools and explore what patterns emerge.
+
 ## Getting Started
 Clone the repository locally
 
